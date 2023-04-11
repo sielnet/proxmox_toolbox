@@ -14,7 +14,7 @@
 
 # USAGE
 # You can download and execute this script using:
-# wget -qO proxmox_toolbox.sh https://raw.githubusercontent.com/Tontonjo/proxmox_toolbox/main/proxmox_toolbox.sh && bash proxmox_toolbox.sh
+# wget -qO proxmox_toolbox.sh https://raw.githubusercontent.com/sielnet/proxmox_toolbox/main/proxmox_toolbox.sh && bash proxmox_toolbox.sh
 
 # SOURCES:
 # https://pve.proxmox.com/wiki/Fail2ban
@@ -89,6 +89,7 @@ backup_content="/etc/ssh/sshd_config /root/.ssh/ /etc/fail2ban/ /etc/systemd/sys
 # ----------------- System variables----------------------
 updatebinversion=1.2
 pve_log_folder="/var/log/pve/tasks/"
+pbs_log_folder="/var/log/proxmox-backup/tasks/"
 proxmoxlib="/usr/share/javascript/proxmox-widget-toolkit/proxmoxlib.js"
 distribution=$(. /etc/*-release;echo $VERSION_CODENAME)
 execdir=$(dirname $0)
@@ -109,7 +110,7 @@ update () {
 		# Check if the /usr/bin/proxmox-update entry for update is already created
 		if ! grep -Fqs "$updatebinversion" /usr/bin/proxmox-update; then
 		    	echo "- Downloading / Updating update binary to version $updatebinversion"
-			wget -qO "/usr/bin/proxmox-update" https://raw.githubusercontent.com/Tontonjo/proxmox_toolbox/main/bin/proxmox-update && chmod +x "/usr/bin/proxmox-update"
+			wget -qO "/usr/bin/proxmox-update" https://raw.githubusercontent.com/sielnet/proxmox_toolbox/main/bin/proxmox-update && chmod +x "/usr/bin/proxmox-update"
 			update
 		else
 			echo "- Updating System"
@@ -123,16 +124,17 @@ update () {
 					if [ -d "$pve_log_folder" ]; then
 						echo "- Removing No Valid Subscription Message for PVE"
 						sed -Ezi.bak "s/!== 'active'/== 'active'/" $proxmoxlib && echo "- Restarting proxy service" && systemctl restart pveproxy.service
-					else 
+					if [ -d "$pbs_log_folder" ]; then 
 						echo "- Removing No Valid Subscription Message for PBS"
 						sed -Ezi.bak "s/!== 'active'/== 'active'/" $proxmoxlib && echo "- Restarting proxy service" && systemctl restart proxmox-backup-proxy.service
+					fi
 					fi
 				fi
 			fi
 		fi
 }
 snmpconfig() {
-wget -qO /etc/snmp/snmpd.conf https://github.com/Tontonjo/proxmox_toolbox/raw/main/snmp/snmpd.conf
+wget -qO /etc/snmp/snmpd.conf https://github.com/sielnet/proxmox_toolbox/raw/main/snmp/snmpd.conf
 }
 
 getcontentcheck() {
@@ -186,6 +188,20 @@ main_menu(){
 	  	  1) clear;
 		read -p "This will configure sources for no-enterprise repository - Continue? y = yes / anything = no: " -n 1 -r
 			if [[ $REPLY =~ ^[Yy]$ ]]; then
+				if grep -Fq "deb https://httpredir.debian.org/debian/ $distribution main contrib non-free" /etc/apt/sources.list; then
+						  echo "-- Source looks alredy configured - Skipping"
+				else
+						  echo "-- Adding new entry to sources.list"
+						  sed -i "\$a# non-free" /etc/apt/sources.list
+						  sed -i "\$adeb https://httpredir.debian.org/debian/ $distribution main contrib non-free" /etc/apt/sources.list
+				fi
+				if grep -Fq "deb https://security.debian.org/debian-security $distribution-security main contrib" /etc/apt/sources.list; then
+						  echo "-- Source looks alredy configured - Skipping"
+				else
+						  echo "-- Adding new entry to sources.list"
+						  sed -i "\$a# security" /etc/apt/sources.list
+						  sed -i "\$adeb https://security.debian.org/debian-security $distribution-security main contrib" /etc/apt/sources.list
+				fi
 				if [ -d "$pve_log_folder" ]; then
 					  echo "- Server is a PVE host"
 					#2: Edit sources list:
@@ -203,7 +219,7 @@ main_menu(){
 						 echo "-- Hiding Enterprise sources list"
 						 sed -i 's/^/#/' /etc/apt/sources.list.d/pve-enterprise.list
 					   fi
-					else
+				if [ -d "$pbs_log_folder" ]; then
 					  echo "- Server is a PBS host"
 					  echo "- Checking Sources list"
 						if grep -Fq "deb http://download.proxmox.com/debian/pbs" /etc/apt/sources.list; then
@@ -218,6 +234,7 @@ main_menu(){
 						else
 						  echo "-- Hiding Enterprise sources list"
 						  sed -i 's/^/#/' /etc/apt/sources.list.d/pbs-enterprise.list
+						fi
 						fi
 				fi
 			sleep 3
@@ -289,7 +306,7 @@ main_menu(){
 					echo "- git already installed"
 				fi
 					echo "- Retreiving fail2ban Proxmox jails from github"
-					git clone -q https://github.com/Tontonjo/proxmox_toolbox.git
+					git clone -q https://github.com/sielnet/proxmox_toolbox.git
 					getcontentcheck
 				if [ -d "$pve_log_folder" ]; then
 					echo "- Host is a PVE Host"	
@@ -443,7 +460,7 @@ main_menu(){
 				else
 					echo "- git already installed"
 				fi
-				git clone -q https://github.com/Tontonjo/proxmox_toolbox.git
+				git clone -q https://github.com/sielnet/proxmox_toolbox.git
 				if [ $(dpkg-query -W -f='${Status}' snmpd 2>/dev/null | grep -c "ok installed") -eq 0 ]; then
 					apt-get install -y snmpd libsnmp-dev;
 				else
