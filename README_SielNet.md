@@ -9,6 +9,7 @@ wget -qO proxmox_toolbox.sh https://raw.githubusercontent.com/sielnet/proxmox_to
 - 1 No-subscription Sources Configuration 
 - 2 Update host & create proxmox-update command
 - 6 Enable S.M.A.R.T self-tests
+- 9 Configuration backup and restoration
 
 ### Updating host & remove subscription
 The script will update your host and detect if the no-enterprise source is configured, if so, remove the subscription message.
